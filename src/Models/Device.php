@@ -32,6 +32,7 @@ use Ninja\DeviceTracker\Events\DeviceVerifiedEvent;
 use Ninja\DeviceTracker\Exception\DeviceNotFoundException;
 use Ninja\DeviceTracker\Factories\DeviceIdFactory;
 use Ninja\DeviceTracker\Models\Relations\HasManySessions;
+use Ninja\DeviceTracker\Modules\Detection\DTO\Version;
 use Ninja\DeviceTracker\Modules\Tracking\Models\Event;
 use Ninja\DeviceTracker\Modules\Tracking\Models\Relations\HasManyEvents;
 use Ninja\DeviceTracker\Traits\PropertyProxy;
@@ -238,7 +239,11 @@ class Device extends Model implements Cacheable
     public function verified(?Authenticatable $user = null): bool
     {
         $user = $user ?? user();
-        $deviceUser = $this->users()::where('user_id', $user?->getAuthIdentifier())->first();
+        if ($user === null || $user->getAuthIdentifier() === null) {
+            return false;
+        }
+
+        $deviceUser = $this->users()->whereKey($user->getAuthIdentifier())->first();
 
         return $deviceUser !== null && $this->status === $deviceUser->pivot->status;
     }
@@ -327,13 +332,13 @@ class Device extends Model implements Cacheable
     {
         $fingerprintChanged = $fingerprint !== null && $this->fingerprint !== $fingerprint;
         $dataChanged = $data !== null && (
-            $this->browser_version !== $data->browser->version->__toString()
-                || $this->platform_version !== $data->platform->version->__toString()
+            $this->browser_version !== $this->versionString($data->browser->version)
+                || $this->platform_version !== $this->versionString($data->platform->version)
                 || $this->source !== $data->source
                 || $this->device_model !== $data->device->model
         );
-        $advertisingIdSet = $data->advertisingId !== null && $this->advertising_id === null;
-        $deviceIdSet = $data->deviceId !== null && $this->device_id === null;
+        $advertisingIdSet = $data !== null && $data->advertisingId !== null && $this->advertising_id === null;
+        $deviceIdSet = $data !== null && $data->deviceId !== null && $this->device_id === null;
 
         if (! $fingerprintChanged && ! $dataChanged && ! $advertisingIdSet && ! $deviceIdSet) {
             return $this;
@@ -345,11 +350,12 @@ class Device extends Model implements Cacheable
         }
 
         if ($dataChanged) {
-            if ($this->browser_version !== $data->browser->version->__toString()) {
-                $this->browser_version = $data->browser->version;
+            assert($data instanceof DeviceDTO);
+            if ($this->browser_version !== $this->versionString($data->browser->version)) {
+                $this->browser_version = $this->versionString($data->browser->version);
             }
-            if ($this->platform_version !== $data->platform->version->__toString()) {
-                $this->platform_version = $data->platform->version;
+            if ($this->platform_version !== $this->versionString($data->platform->version)) {
+                $this->platform_version = $this->versionString($data->platform->version);
             }
             if ($this->source !== $data->source) {
                 $this->source = $data->source;
@@ -360,16 +366,23 @@ class Device extends Model implements Cacheable
         }
 
         if ($advertisingIdSet) {
+            assert($data instanceof DeviceDTO);
             $this->advertising_id = $data->advertisingId;
         }
 
         if ($deviceIdSet) {
+            assert($data instanceof DeviceDTO);
             $this->device_id = $data->deviceId;
         }
 
         $this->save();
 
         return $this;
+    }
+
+    private function versionString(?Version $version): ?string
+    {
+        return $version === null ? null : (string) $version;
     }
 
     public static function byUuid(StorableId|string $uuid, bool $cached = true): ?self

@@ -28,7 +28,6 @@ use Ninja\DeviceTracker\Events\SessionStartedEvent;
 use Ninja\DeviceTracker\Events\SessionUnblockedEvent;
 use Ninja\DeviceTracker\Events\SessionUnlockedEvent;
 use Ninja\DeviceTracker\Exception\SessionNotFoundException;
-use Ninja\DeviceTracker\Facades\DeviceManager;
 use Ninja\DeviceTracker\Facades\SessionManager;
 use Ninja\DeviceTracker\Factories\SessionIdFactory;
 use Ninja\DeviceTracker\Modules\Location\Contracts\LocationProvider;
@@ -256,6 +255,7 @@ class Session extends Model implements Cacheable
     {
         if ($this->status === SessionStatus::Finished) {
             SessionTransport::forget();
+
             return true;
         }
 
@@ -475,16 +475,25 @@ class Session extends Model implements Cacheable
         });
     }
 
-    private static function getIp(): string
+    public static function resolveClientIp(): string
     {
-        if (App::environment() === 'local') {
-            $development_ips = config('devices.development_ip_pool', []);
-            shuffle($development_ips);
-            $ip = $development_ips[0];
-        } else {
-            $ip = request()->ip();
+        if (! App::environment('local')) {
+            return (string) (request()->ip() ?? '');
         }
 
-        return $ip;
+        $pool = config('devices.development_ip_pool', []);
+        if (! is_array($pool) || $pool === []) {
+            return (string) (request()->ip() ?? '127.0.0.1');
+        }
+
+        $requestIp = (string) (request()->ip() ?? '127.0.0.1');
+        $index = abs(crc32($requestIp)) % count($pool);
+
+        return (string) $pool[$index];
+    }
+
+    private static function getIp(): string
+    {
+        return self::resolveClientIp();
     }
 }

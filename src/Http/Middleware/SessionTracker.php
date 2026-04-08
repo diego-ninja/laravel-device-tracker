@@ -64,7 +64,7 @@ final readonly class SessionTracker
                 return $this->manageInactivity($request, $session, $next);
             }
 
-            if ($this->changedLocation($request, $session)) {
+            if ($this->changedLocation($session)) {
                 $session = $this->manageSessionLocationChange($request, $session);
             }
 
@@ -221,14 +221,14 @@ final readonly class SessionTracker
         return response()->json(['message' => 'Session locked'], config('devices.lock_http_code', 403));
     }
 
-    private function changedLocation(Request $request, Session $session): bool
+    private function changedLocation(Session $session): bool
     {
-        return $request->ip() !== $session->ip;
+        return Session::resolveClientIp() !== $session->ip;
     }
 
     private function manageSessionLocationChange(Request $request, Session $session): Session
     {
-        if (! $this->changedLocation($request, $session)) {
+        if (! $this->changedLocation($session)) {
             return $session;
         }
 
