@@ -37,6 +37,9 @@ class ChangeHistory extends Model
         return config('devices.history.table', 'laravel_devices_history');
     }
 
+    /**
+     * @return MorphTo<Model, $this>
+     */
     public function model(): MorphTo
     {
         return $this->morphTo();

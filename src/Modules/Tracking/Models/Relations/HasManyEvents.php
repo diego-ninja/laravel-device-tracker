@@ -3,13 +3,12 @@
 namespace Ninja\DeviceTracker\Modules\Tracking\Models\Relations;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Collection;
 use Ninja\DeviceTracker\Models\Device;
 use Ninja\DeviceTracker\Models\Session;
 use Ninja\DeviceTracker\Modules\Tracking\Enums\EventType;
 use Ninja\DeviceTracker\Modules\Tracking\Models\Event;
-use stdClass;
 
 /**
  * @extends HasMany<Event, Device|Session>
@@ -23,8 +22,7 @@ class HasManyEvents extends HasMany
      */
     public function type(EventType $type): HasMany|Builder
     {
-        return $this->where('type', $type);
-
+        return $this->query->where('type', $type);
     }
 
     /**
@@ -60,10 +58,10 @@ class HasManyEvents extends HasMany
     }
 
     /**
-     * @return Collection<int, Event|stdClass>
+     * @return EloquentCollection<int, Event>
      */
-    public function last(int $count = 1): Collection
+    public function last(int $count = 1): EloquentCollection
     {
-        return $this->orderByDesc('occurred_at')->limit($count)->get();
+        return $this->query->orderByDesc('occurred_at')->limit($count)->get();
     }
 }

@@ -19,10 +19,9 @@ final class HasManySessions extends HasMany
     public function first(): ?Session
     {
         /** @var Session|null $session */
-        $session = $this
+        $session = $this->query
             ->with('device')
             ->orderBy('started_at')
-            ->get()
             ->first();
 
         return $session;
@@ -31,10 +30,9 @@ final class HasManySessions extends HasMany
     public function last(): ?Session
     {
         /** @var Session|null $session */
-        $session = $this
+        $session = $this->query
             ->with('device')
             ->orderByDesc('started_at')
-            ->get()
             ->first();
 
         return $session;
@@ -43,10 +41,9 @@ final class HasManySessions extends HasMany
     public function current(): ?Session
     {
         /** @var Session|null $session */
-        $session = $this
+        $session = $this->query
             ->with('device')
             ->where('uuid', session_uuid())
-            ->get()
             ->first();
 
         return $session;
@@ -55,11 +52,10 @@ final class HasManySessions extends HasMany
     public function recent(): ?Session
     {
         /** @var Session|null $session */
-        $session = $this
+        $session = $this->query
             ->with('device')
             ->where('status', SessionStatus::Active->value)
             ->orderByDesc('last_activity_at')
-            ->get()
             ->first();
 
         return $session;
@@ -70,7 +66,7 @@ final class HasManySessions extends HasMany
      */
     public function active(bool $exceptCurrent = false): Collection
     {
-        $query = $this
+        $query = $this->query
             ->with('device')
             ->where('finished_at', null)
             ->where('status', SessionStatus::Active);
@@ -89,7 +85,7 @@ final class HasManySessions extends HasMany
      */
     public function finished(): Collection
     {
-        return $this
+        return $this->query
             ->with('device')
             ->whereNotNull('finished_at')
             ->where('status', SessionStatus::Finished)

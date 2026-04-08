@@ -18,14 +18,23 @@ use Throwable;
 abstract class AbstractTransport
 {
     protected const CONFIG_PARAMETER = 'transports.device_id.parameter';
+
     protected const CONFIG_PARAMETER_FALLBACK = 'device_id_parameter';
+
     protected const CONFIG_ALTERNATIVE_PARAMETER = 'transports.device_id.alternative_parameter';
+
     protected const CONFIG_ALTERNATIVE_PARAMETER_FALLBACK = 'device_id_alternative_parameter';
+
     protected const CONFIG_TRANSPORT_HIERARCHY_KEY = 'transports.device_id.transport_hierarchy';
+
     protected const CONFIG_TRANSPORT_HIERARCHY_KEY_FALLBACK = 'device_id_transport_hierarchy';
+
     protected const CONFIG_RESPONSE_TRANSPORT_KEY = 'transports.device_id.response_transport';
+
     protected const CONFIG_RESPONSE_TRANSPORT_KEY_FALLBACK = 'device_id_response_transport';
+
     protected const DEFAULT_TRANSPORT = Transport::Cookie;
+
     protected const DEFAULT_RESPONSE_TRANSPORT = Transport::Cookie;
 
     public function __construct(public Transport $transport) {}
@@ -40,7 +49,7 @@ abstract class AbstractTransport
     /**
      * @return array<Transport>
      */
-    private static function transportsHierarchy(): array
+    protected static function transportsHierarchy(): array
     {
         $hierarchy = config(
             sprintf('devices.%s', static::CONFIG_TRANSPORT_HIERARCHY_KEY),
@@ -196,6 +205,9 @@ abstract class AbstractTransport
         return null;
     }
 
+    /**
+     * @param  array<int, mixed>  $hierarchy
+     */
     protected static function cleanRequestHierarchy(array $hierarchy): void
     {
         foreach ($hierarchy as $item) {
@@ -253,10 +265,11 @@ abstract class AbstractTransport
         }
 
         $parameter = static::parameter();
+
         return $request->merge([$parameter => $id]);
     }
 
-    private static function isValidResponse(mixed $response): bool
+    protected static function isValidResponse(mixed $response): bool
     {
         $valid = [
             Response::class,

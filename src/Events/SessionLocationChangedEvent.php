@@ -19,10 +19,10 @@ final class SessionLocationChangedEvent
         public readonly Session $oldSession,
         public readonly Location $oldLocation,
         public readonly Carbon $oldFirstActivityAt,
-        public readonly Carbon $oldLastActivityAt,
+        public readonly ?Carbon $oldLastActivityAt,
         public readonly Session $currentSession,
         public readonly Location $currentLocation,
         public readonly Carbon $currentFirstActivityAt,
-        public readonly Carbon $currentLastActivityAt,
+        public readonly ?Carbon $currentLastActivityAt,
     ) {}
 }

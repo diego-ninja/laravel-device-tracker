@@ -247,4 +247,10 @@ class FingerprintTransportTest extends FeatureTestCase
             }
         }
     }
+
+    public function test_make_returns_fingerprint_transport_instance(): void
+    {
+        $transport = FingerprintTransport::make(Transport::Cookie);
+        $this->assertInstanceOf(FingerprintTransport::class, $transport);
+    }
 }

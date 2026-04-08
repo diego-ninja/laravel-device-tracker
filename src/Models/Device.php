@@ -5,6 +5,7 @@ namespace Ninja\DeviceTracker\Models;
 use Carbon\Carbon;
 use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -73,9 +74,12 @@ use PDOException;
  * @property-read Collection<int, Event> $events
  * @property-read Collection<int, User> $users
  */
+#[UseFactory(DeviceFactory::class)]
 class Device extends Model implements Cacheable
 {
+    /** @use HasFactory<\Ninja\DeviceTracker\Database\Factories\DeviceFactory> */
     use HasFactory;
+
     use PropertyProxy;
 
     protected $table = 'devices';
@@ -150,6 +154,9 @@ class Device extends Model implements Cacheable
         );
     }
 
+    /**
+     * @return MorphMany<ChangeHistory, $this>
+     */
     public function history(): MorphMany
     {
         return $this->morphMany(ChangeHistory::class, 'model');
@@ -282,7 +289,7 @@ class Device extends Model implements Cacheable
 
     public function key(): string
     {
-        return DeviceCache::key($this->uuid);
+        return DeviceCache::key((string) $this->uuid);
     }
 
     public function ttl(): ?int
@@ -389,6 +396,9 @@ class Device extends Model implements Cacheable
     {
         if (is_string($uuid)) {
             $uuid = DeviceIdFactory::from($uuid);
+            if ($uuid === null) {
+                return null;
+            }
         }
 
         if (! $cached) {
@@ -399,7 +409,7 @@ class Device extends Model implements Cacheable
         }
 
         return DeviceCache::remember(
-            key: DeviceCache::key($uuid),
+            key: DeviceCache::key((string) $uuid),
             callback: fn () => self::byUuid($uuid, false)
         );
     }
@@ -422,7 +432,7 @@ class Device extends Model implements Cacheable
         }
 
         return DeviceCache::remember(
-            key: DeviceCache::key($fingerprint),
+            key: DeviceCache::key((string) $fingerprint),
             callback: fn () => self::where('fingerprint', $fingerprint)->first()
         );
     }
@@ -475,6 +485,9 @@ class Device extends Model implements Cacheable
     {
         if (is_string($id)) {
             $id = DeviceIdFactory::from($id);
+            if ($id === null) {
+                return false;
+            }
         }
 
         return self::byUuid($id, false) !== null;
@@ -520,9 +533,9 @@ class Device extends Model implements Cacheable
         });
     }
 
-    protected static function newFactory()
+    protected static function newFactory(): DeviceFactory
     {
-        return new DeviceFactory;
+        return DeviceFactory::new();
     }
 
     public function equals(DeviceDTO $dto, bool $strict = true): bool

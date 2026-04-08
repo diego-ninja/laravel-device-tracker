@@ -21,7 +21,7 @@ final readonly class DeviceChecker
                 if (! array_key_exists($errorCode, Response::$statusTexts)) {
                     $errorCode = 403;
                 }
-                abort($errorCode, 'Device not found.');
+                abort((int) $errorCode, 'Device not found.');
             } else {
                 throw new DeviceNotFoundException;
             }

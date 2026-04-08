@@ -76,6 +76,9 @@ final readonly class SessionTracker
             if (guard()->check()) {
                 // The login api could have been called again, get again the session to get the latest active one
                 $session = device_session();
+                if ($session === null) {
+                    return $response;
+                }
 
                 return SessionTransport::set($response, $session->uuid);
             }
@@ -89,12 +92,14 @@ final readonly class SessionTracker
                 SessionTransport::propagate($session->uuid);
                 $response = $next($request);
 
+                // Auth may change during $next (e.g. logout); re-check guard.
+                // @phpstan-ignore if.alwaysTrue (guard state is not constant across $next)
                 if (guard()->check()) {
                     return SessionTransport::set($response, $session->uuid);
                 }
 
                 // User has done logout, avoid setting session
-                return $response;
+                return $response; // @phpstan-ignore deadCode.unreachable (guard may change during $next)
             } catch (DeviceNotFoundException $e) {
                 Log::error('Failed to start session', ['error' => $e->getMessage()]);
             }
@@ -108,6 +113,7 @@ final readonly class SessionTracker
                 }
                 $response = $next($request);
 
+                // @phpstan-ignore if.alwaysFalse (login may run inside $next while guard was false at entry)
                 if (guard()->check()) {
                     // Here the api must have done the login which sets the session uuid
                     $sessionUuid = session_uuid();

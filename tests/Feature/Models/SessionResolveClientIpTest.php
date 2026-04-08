@@ -37,4 +37,27 @@ class SessionResolveClientIpTest extends FeatureTestCase
 
         $this->assertSame('10.0.0.1', $ip);
     }
+
+    public function test_resolve_client_ip_uses_placeholder_when_request_ip_missing_and_pool_empty(): void
+    {
+        Config::set('devices.development_ip_pool', []);
+        $request = Request::create('/', 'GET', [], [], [], ['REMOTE_ADDR' => '']);
+        $this->app->instance('request', $request);
+
+        $this->assertSame('0.0.0.0', Session::resolveClientIp());
+    }
+
+    public function test_non_local_uses_placeholder_when_request_ip_missing(): void
+    {
+        $previousEnv = $this->app['env'];
+        try {
+            $this->app['env'] = 'production';
+            $request = Request::create('/', 'GET', [], [], [], ['REMOTE_ADDR' => '']);
+            $this->app->instance('request', $request);
+
+            $this->assertSame('0.0.0.0', Session::resolveClientIp());
+        } finally {
+            $this->app['env'] = $previousEnv;
+        }
+    }
 }

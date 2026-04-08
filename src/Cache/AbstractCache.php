@@ -10,7 +10,6 @@ use Ninja\DeviceTracker\Contracts\Cacheable;
 use Ninja\DeviceTracker\Models\Device;
 use Psr\SimpleCache\InvalidArgumentException;
 
-/** @phpstan-consistent-constructor */
 abstract class AbstractCache
 {
     public const KEY_PREFIX = '';
@@ -20,7 +19,7 @@ abstract class AbstractCache
 
     protected ?Repository $cache = null;
 
-    private function __construct()
+    final protected function __construct()
     {
         if (! $this->enabled()) {
             return;
@@ -55,11 +54,26 @@ abstract class AbstractCache
 
     public static function remember(string $key, Closure $callback): mixed
     {
-        if (! self::instance()->enabled()) {
+        $instance = self::instance();
+        if (! $instance->enabled()) {
             return $callback();
         }
 
-        return self::instance()->cache?->remember($key, self::instance()->ttl(), $callback);
+        $cache = $instance->cache;
+        if ($cache === null) {
+            return $callback();
+        }
+
+        $ttl = $instance->ttl();
+        $existing = $cache->get($key);
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $value = $callback();
+        $cache->put($key, $value, $ttl);
+
+        return $value;
     }
 
     public static function key(string $key): string

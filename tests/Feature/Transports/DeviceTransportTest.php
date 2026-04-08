@@ -247,4 +247,10 @@ class DeviceTransportTest extends FeatureTestCase
             }
         }
     }
+
+    public function test_make_returns_device_transport_instance(): void
+    {
+        $transport = DeviceTransport::make(Transport::Cookie);
+        $this->assertInstanceOf(DeviceTransport::class, $transport);
+    }
 }

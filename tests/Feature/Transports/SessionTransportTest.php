@@ -247,4 +247,10 @@ class SessionTransportTest extends FeatureTestCase
             }
         }
     }
+
+    public function test_make_returns_session_transport_instance(): void
+    {
+        $transport = SessionTransport::make(Transport::Cookie);
+        $this->assertInstanceOf(SessionTransport::class, $transport);
+    }
 }

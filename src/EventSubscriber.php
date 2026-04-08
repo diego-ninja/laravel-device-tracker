@@ -23,14 +23,11 @@ final readonly class EventSubscriber
         try {
             if (! DeviceManager::tracked()) {
                 DeviceManager::track();
-                $device = DeviceManager::create();
-                if ($device === null) {
-                    throw new DeviceNotFoundException('Failed to create device during login');
-                }
+                DeviceManager::create();
             }
 
             $session = SessionManager::refresh($event->user);
-            SessionTransport::propagate($session?->uuid);
+            SessionTransport::propagate($session->uuid);
         } catch (DeviceNotFoundException $e) {
             Log::error('Login failed due to device error', [
                 'error' => $e->getMessage(),
