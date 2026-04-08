@@ -65,7 +65,7 @@ final readonly class SessionTracker
             }
 
             if ($this->changedLocation($session)) {
-                $session = $this->manageSessionLocationChange($request, $session);
+                $session = $this->manageSessionLocationChange($session);
             }
 
             // Make sure session is kept alive
@@ -232,7 +232,7 @@ final readonly class SessionTracker
         return Session::resolveClientIp() !== $session->ip;
     }
 
-    private function manageSessionLocationChange(Request $request, Session $session): Session
+    private function manageSessionLocationChange(Session $session): Session
     {
         if (! $this->changedLocation($session)) {
             return $session;

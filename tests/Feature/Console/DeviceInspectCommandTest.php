@@ -63,7 +63,6 @@ final class DeviceInspectCommandTest extends FeatureTestCase
         $this->assertStringContainsString('Total Sessions', $output);
         $this->assertMatchesRegularExpression('/Active Sessions\s*\|\s*1/', $output);
         $this->assertMatchesRegularExpression('/Total Sessions\s*\|\s*2/', $output);
-        // users() counts pivot rows on device_sessions (one row per session), not distinct users.
-        $this->assertMatchesRegularExpression('/Associated Users\s*\|\s*2/', $output);
+        $this->assertMatchesRegularExpression('/Associated Users\s*\|\s*1/', $output);
     }
 }

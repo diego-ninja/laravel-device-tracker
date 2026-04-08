@@ -104,9 +104,17 @@ final readonly class DeviceTracker
                     return DeviceTransport::set($next(DeviceTransport::propagate($device->uuid)), $device->uuid);
                 }
 
-                $this->abort($detectedDevice === null, $this->deviceDtoSource($detectedDevice), $e);
+                $this->abort(
+                    $detectedDevice === null || $detectedDevice->unknown(),
+                    $this->deviceDtoSource($detectedDevice),
+                    $e
+                );
             } catch (UnknownDeviceDetectedException $e) {
-                $this->abort($detectedDevice === null, $this->deviceDtoSource($detectedDevice), $e);
+                $this->abort(
+                    $detectedDevice === null || $detectedDevice->unknown(),
+                    $this->deviceDtoSource($detectedDevice),
+                    $e
+                );
             }
 
             if ($device === null) {

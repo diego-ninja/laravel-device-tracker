@@ -31,7 +31,8 @@ final class ChangeHistoryObserverTest extends FeatureTestCase
             'devices.history.enabled' => true,
         ]);
 
-        // Service provider only registers observers when history is enabled at boot; mirror that here.
+        // Config defaults keep history off at application boot, so the service provider does not
+        // register ChangeHistoryObserver; we enable the feature and attach the observer only here.
         Device::observe(ChangeHistoryObserver::class);
         Session::observe(ChangeHistoryObserver::class);
         Relation::morphMap([

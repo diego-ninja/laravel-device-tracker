@@ -61,6 +61,29 @@ final class DeviceCacheRememberTest extends FeatureTestCase
         $this->assertSame(1, $calls);
     }
 
+    public function test_remember_does_not_store_null_so_callback_runs_again(): void
+    {
+        $this->resetAbstractCacheInstances();
+        Config::set('devices.cache_enabled_for', ['device']);
+        Config::set('devices.cache_store', 'array');
+
+        $calls = 0;
+        $first = DeviceCache::remember('tdd-remember-null', function () use (&$calls) {
+            $calls++;
+
+            return null;
+        });
+        $second = DeviceCache::remember('tdd-remember-null', function () use (&$calls) {
+            $calls++;
+
+            return null;
+        });
+
+        $this->assertNull($first);
+        $this->assertNull($second);
+        $this->assertSame(2, $calls);
+    }
+
     private function resetAbstractCacheInstances(): void
     {
         $ref = new \ReflectionClass(AbstractCache::class);

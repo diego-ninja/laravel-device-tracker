@@ -50,7 +50,7 @@ class Event extends Model
     ];
 
     /**
-     * @return Attribute<Metadata, string>
+     * @return Attribute<Metadata, Metadata>
      */
     public function metadata(): Attribute
     {
@@ -61,7 +61,7 @@ class Event extends Model
     }
 
     /**
-     * @return Attribute<EventType|null, string>
+     * @return Attribute<EventType|null, EventType>
      */
     public function type(): Attribute
     {

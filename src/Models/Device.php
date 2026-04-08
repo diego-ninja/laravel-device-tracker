@@ -5,7 +5,6 @@ namespace Ninja\DeviceTracker\Models;
 use Carbon\Carbon;
 use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -74,7 +73,6 @@ use PDOException;
  * @property-read Collection<int, Event> $events
  * @property-read Collection<int, User> $users
  */
-#[UseFactory(DeviceFactory::class)]
 class Device extends Model implements Cacheable
 {
     /** @use HasFactory<\Ninja\DeviceTracker\Database\Factories\DeviceFactory> */

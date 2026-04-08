@@ -76,7 +76,9 @@ abstract class AbstractCache
         }
 
         $value = $callback();
-        $cache->put($key, $value, $ttl);
+        if ($value !== null) {
+            $cache->put($key, $value, $ttl);
+        }
 
         return $value;
     }

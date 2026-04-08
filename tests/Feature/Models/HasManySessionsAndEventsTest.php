@@ -89,4 +89,33 @@ final class HasManySessionsAndEventsTest extends FeatureTestCase
         $this->assertNotNull($newest);
         $this->assertSame(EventType::Login, $newest->type);
     }
+
+    public function test_device_events_views_scope_chains_to_last(): void
+    {
+        $device = Device::factory()->create();
+
+        Event::create([
+            'uuid' => (string) EventIdFactory::generate(),
+            'device_uuid' => $device->uuid,
+            'session_uuid' => null,
+            'type' => EventType::PageView,
+            'metadata' => new Metadata([]),
+            'ip_address' => '10.0.0.1',
+            'occurred_at' => Carbon::parse('2021-01-01 12:00:00'),
+        ]);
+
+        Event::create([
+            'uuid' => (string) EventIdFactory::generate(),
+            'device_uuid' => $device->uuid,
+            'session_uuid' => null,
+            'type' => EventType::Login,
+            'metadata' => new Metadata([]),
+            'ip_address' => '10.0.0.2',
+            'occurred_at' => Carbon::parse('2021-06-01 12:00:00'),
+        ]);
+
+        $newestView = $device->events()->views()->last(1)->first();
+        $this->assertNotNull($newestView);
+        $this->assertSame(EventType::PageView, $newestView->type);
+    }
 }

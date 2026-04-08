@@ -35,6 +35,10 @@ final class DeviceInspectCommand extends Command
             ->whereNull('finished_at')
             ->where('status', SessionStatus::Active->value)
             ->count();
+        $associatedUsers = (clone $sessionsQuery)
+            ->whereNotNull('user_id')
+            ->distinct()
+            ->count('user_id');
 
         $this->info('Device Information:');
         $this->table(
@@ -50,7 +54,7 @@ final class DeviceInspectCommand extends Command
                 ['Last Updated', $device->updated_at],
                 ['Active Sessions', $activeSessions],
                 ['Total Sessions', $totalSessions],
-                ['Associated Users', $device->users()->count()],
+                ['Associated Users', $associatedUsers],
             ]
         );
     }

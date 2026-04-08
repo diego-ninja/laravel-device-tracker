@@ -2,7 +2,6 @@
 
 namespace Ninja\DeviceTracker\Modules\Tracking\Models\Relations;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Ninja\DeviceTracker\Models\Device;
@@ -18,41 +17,31 @@ use Ninja\DeviceTracker\Modules\Tracking\Models\Event;
 class HasManyEvents extends HasMany
 {
     /**
-     * @return HasMany<Event, Device|Session>|Builder<Event>
+     * Scope by type on the relation so chains like `events()->views()->last(1)` keep `HasManyEvents`.
      */
-    public function type(EventType $type): HasMany|Builder
+    public function type(EventType $type): static
     {
-        return $this->query->where('type', $type);
+        $this->query->where('type', $type);
+
+        return $this;
     }
 
-    /**
-     * @return HasMany<Event, Device|Session>|Builder<Event>
-     */
-    public function login(): HasMany|Builder
+    public function login(): static
     {
         return $this->type(EventType::Login);
     }
 
-    /**
-     * @return HasMany<Event, Device|Session>|Builder<Event>
-     */
-    public function logout(): HasMany|Builder
+    public function logout(): static
     {
         return $this->type(EventType::Logout);
     }
 
-    /**
-     * @return HasMany<Event, Device|Session>|Builder<Event>
-     */
-    public function signup(): HasMany|Builder
+    public function signup(): static
     {
         return $this->type(EventType::Signup);
     }
 
-    /**
-     * @return HasMany<Event, Device|Session>|Builder<Event>
-     */
-    public function views(): HasMany|Builder
+    public function views(): static
     {
         return $this->type(EventType::PageView);
     }

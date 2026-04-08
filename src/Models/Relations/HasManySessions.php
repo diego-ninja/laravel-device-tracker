@@ -73,7 +73,7 @@ final class HasManySessions extends HasMany
 
         if ($exceptCurrent) {
             if (session_uuid() !== null) {
-                $query->where('id', '!=', session_uuid());
+                $query->where('uuid', '!=', session_uuid());
             }
         }
 

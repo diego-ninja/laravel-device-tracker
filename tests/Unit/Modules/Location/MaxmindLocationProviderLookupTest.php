@@ -50,7 +50,6 @@ final class MaxmindLocationProviderLookupTest extends TestCase
 
         $provider = new MaxmindLocationProvider($reader);
         $method = new \ReflectionMethod(MaxmindLocationProvider::class, 'lookup');
-        $method->setAccessible(true);
         $dto = $method->invoke($provider, '203.0.113.10');
 
         $this->assertSame('99', $dto->accuracyRadius);
