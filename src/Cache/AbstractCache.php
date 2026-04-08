@@ -66,10 +66,11 @@ abstract class AbstractCache
 
         $ttl = $instance->ttl();
 
-        // Match Illuminate\Contracts\Cache\Repository::remember(): only non-null values count
-        // as hits. Laravel's get()/has() treat a store null the same as a missing key, so
-        // callbacks that resolve to null are not "sticky" across requests. Other falsy values
-        // (false, 0, '', []) are returned from cache as expected.
+        // Similar in spirit to Repository::remember(), but not identical: Laravel's remember()
+        // still calls put() with the callback result (including null), while many stores treat
+        // stored null like a miss on get(). We skip put() when the callback returns null so we
+        // avoid pointless writes when data is absent (e.g. Device::byUuid miss) while enabled(),
+        // ttl(), and the resolved $cache repository behave the same for non-null values.
         $existing = $cache->get($key);
         if ($existing !== null) {
             return $existing;

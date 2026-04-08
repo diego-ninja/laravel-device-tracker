@@ -3,6 +3,7 @@
 namespace Ninja\DeviceTracker\Console\Commands;
 
 use Illuminate\Console\Command;
+use InvalidArgumentException;
 use Ninja\DeviceTracker\Enums\SessionStatus;
 use Ninja\DeviceTracker\Models\Device;
 
@@ -21,7 +22,13 @@ final class DeviceInspectCommand extends Command
             return;
         }
 
-        $device = Device::byUuid($uuid);
+        try {
+            $device = Device::byUuid($uuid);
+        } catch (InvalidArgumentException $e) {
+            $this->error($e->getMessage());
+
+            return;
+        }
 
         if ($device === null) {
             $this->error(sprintf('Device with UUID %s not found', $uuid));

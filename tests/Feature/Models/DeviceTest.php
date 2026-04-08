@@ -4,6 +4,7 @@ namespace Ninja\DeviceTracker\Tests\Feature\Models;
 
 use Carbon\Carbon;
 use Illuminate\Foundation\Auth\User;
+use InvalidArgumentException;
 use Ninja\DeviceTracker\DTO\Device as DeviceDto;
 use Ninja\DeviceTracker\DTO\Metadata;
 use Ninja\DeviceTracker\Enums\SessionStatus;
@@ -14,6 +15,7 @@ use Ninja\DeviceTracker\Models\Session;
 use Ninja\DeviceTracker\Modules\Detection\DTO\Browser;
 use Ninja\DeviceTracker\Modules\Detection\DTO\DeviceType;
 use Ninja\DeviceTracker\Modules\Detection\DTO\Platform;
+use Ninja\DeviceTracker\Modules\Detection\DTO\Version;
 use Ninja\DeviceTracker\Modules\Location\DTO\Location;
 use Ninja\DeviceTracker\Tests\FeatureTestCase;
 use Ninja\DeviceTracker\ValueObject\DeviceId;
@@ -334,5 +336,58 @@ class DeviceTest extends FeatureTestCase
 
         $this->assertNull($device->browser_version);
         $this->assertNull($device->platform_version);
+    }
+
+    public function test_by_uuid_rejects_invalid_string(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('DeviceIdFactory::from()');
+
+        Device::byUuid('not-a-valid-uuid', false);
+    }
+
+    public function test_equals_strict_compares_browser_and_platform_versions_as_strings(): void
+    {
+        $device = Device::factory()->create([
+            'browser' => 'Chrome',
+            'browser_version' => '130.0.0',
+            'browser_family' => 'Chrome',
+            'browser_engine' => 'Blink',
+            'platform' => 'Mac',
+            'platform_version' => '10.15.7',
+            'platform_family' => 'Mac',
+            'device_type' => 'desktop',
+            'device_family' => 'Apple',
+            'device_model' => 'MacBook',
+            'source' => 'Mozilla/5.0',
+            'advertising_id' => null,
+            'device_id' => null,
+        ]);
+
+        $dto = DeviceDto::from([
+            'browser' => Browser::from([
+                'name' => 'Chrome',
+                'version' => Version::fromString('130.0.0'),
+                'family' => 'Chrome',
+                'engine' => 'Blink',
+            ]),
+            'platform' => Platform::from([
+                'name' => 'Mac',
+                'version' => Version::fromString('10.15.7'),
+                'family' => 'Mac',
+            ]),
+            'device' => DeviceType::from([
+                'type' => 'desktop',
+                'family' => 'Apple',
+                'model' => 'MacBook',
+            ]),
+            'advertisingId' => null,
+            'deviceId' => null,
+            'bot' => null,
+            'grade' => null,
+            'source' => 'Mozilla/5.0',
+        ]);
+
+        $this->assertTrue($device->equals($dto, strict: true));
     }
 }

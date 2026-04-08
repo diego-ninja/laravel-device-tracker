@@ -118,4 +118,53 @@ final class HasManySessionsAndEventsTest extends FeatureTestCase
         $this->assertNotNull($newestView);
         $this->assertSame(EventType::PageView, $newestView->type);
     }
+
+    public function test_sessions_relation_helpers_do_not_leak_query_constraints(): void
+    {
+        $user = new User;
+        $user->name = 'Leak test';
+        $user->email = 'sessions-leak@example.test';
+        $user->password = 'password';
+        $user->save();
+
+        $device = Device::factory()->create();
+        $location = new Location(null, null, null, null, null, null, null, null, null, null);
+
+        $older = new Session([
+            'uuid' => SessionIdFactory::generate(),
+            'user_id' => $user->id,
+            'device_uuid' => $device->uuid,
+            'ip' => '10.0.0.1',
+            'location' => $location,
+            'status' => SessionStatus::Active,
+            'metadata' => new Metadata([]),
+            'started_at' => Carbon::now()->subDay(),
+            'last_activity_at' => Carbon::now()->subDay(),
+            'finished_at' => null,
+        ]);
+        $older->save();
+
+        $newer = new Session([
+            'uuid' => SessionIdFactory::generate(),
+            'user_id' => $user->id,
+            'device_uuid' => $device->uuid,
+            'ip' => '10.0.0.2',
+            'location' => $location,
+            'status' => SessionStatus::Active,
+            'metadata' => new Metadata([]),
+            'started_at' => Carbon::now(),
+            'last_activity_at' => Carbon::now(),
+            'finished_at' => null,
+        ]);
+        $newer->save();
+
+        $relation = $device->sessions();
+        $first = $relation->first();
+        $last = $relation->last();
+
+        $this->assertNotNull($first);
+        $this->assertNotNull($last);
+        $this->assertTrue($first->is($older));
+        $this->assertTrue($last->is($newer));
+    }
 }
