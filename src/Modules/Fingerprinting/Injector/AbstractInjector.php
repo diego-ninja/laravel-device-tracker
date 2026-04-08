@@ -17,6 +17,7 @@ abstract class AbstractInjector implements Injector
 
     protected static function script(Device $device): string
     {
+        /** @var view-string $view */
         $view = sprintf('laravel-devices::%s-tracking-script', static::LIBRARY_NAME);
 
         return view($view, [

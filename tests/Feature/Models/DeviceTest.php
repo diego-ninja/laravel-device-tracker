@@ -2,12 +2,21 @@
 
 namespace Ninja\DeviceTracker\Tests\Feature\Models;
 
+use Carbon\Carbon;
+use Illuminate\Foundation\Auth\User;
+use InvalidArgumentException;
 use Ninja\DeviceTracker\DTO\Device as DeviceDto;
 use Ninja\DeviceTracker\DTO\Metadata;
+use Ninja\DeviceTracker\Enums\SessionStatus;
+use Ninja\DeviceTracker\Factories\FingerprintFactory;
+use Ninja\DeviceTracker\Factories\SessionIdFactory;
 use Ninja\DeviceTracker\Models\Device;
+use Ninja\DeviceTracker\Models\Session;
 use Ninja\DeviceTracker\Modules\Detection\DTO\Browser;
 use Ninja\DeviceTracker\Modules\Detection\DTO\DeviceType;
 use Ninja\DeviceTracker\Modules\Detection\DTO\Platform;
+use Ninja\DeviceTracker\Modules\Detection\DTO\Version;
+use Ninja\DeviceTracker\Modules\Location\DTO\Location;
 use Ninja\DeviceTracker\Tests\FeatureTestCase;
 use Ninja\DeviceTracker\ValueObject\DeviceId;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -15,6 +24,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 class DeviceTest extends FeatureTestCase
 {
     private readonly Device $device;
+
     private readonly DeviceDto $deviceDto;
 
     private function setUpDevice(array $deviceDetails = []): void
@@ -209,5 +219,175 @@ class DeviceTest extends FeatureTestCase
         } else {
             $this->assertNull(Device::byDeviceDtoUniqueInfo($this->deviceDto));
         }
+    }
+
+    public function test_verified_returns_false_when_user_has_no_session_for_device(): void
+    {
+        $user = new User;
+        $user->name = 'Verified test';
+        $user->email = 'verified-null@example.test';
+        $user->password = 'password';
+        $user->save();
+
+        $device = Device::factory()->create();
+
+        $this->assertFalse($device->verified($user));
+    }
+
+    public function test_verified_does_not_throw_when_user_has_device_session(): void
+    {
+        $user = new User;
+        $user->name = 'Verified session';
+        $user->email = 'verified-session@example.test';
+        $user->password = 'password';
+        $user->save();
+
+        $device = Device::factory()->create();
+
+        $session = new Session([
+            'uuid' => SessionIdFactory::generate(),
+            'user_id' => $user->id,
+            'device_uuid' => $device->uuid,
+            'ip' => '192.168.0.1',
+            'location' => new Location(null, null, null, null, null, null, null, null, null, null),
+            'status' => SessionStatus::Active,
+            'metadata' => new Metadata([]),
+            'started_at' => Carbon::now(),
+            'last_activity_at' => Carbon::now(),
+        ]);
+        $session->save();
+
+        $this->assertIsBool($device->verified($user));
+    }
+
+    public function test_verified_returns_false_when_passed_null_user_without_auth(): void
+    {
+        $device = Device::factory()->create();
+
+        $this->assertFalse($device->verified(null));
+    }
+
+    public function test_update_info_with_null_data_only_updates_fingerprint(): void
+    {
+        $device = Device::factory()->create([
+            'fingerprint' => null,
+            'browser_version' => '1.0.0',
+        ]);
+        $fingerprint = FingerprintFactory::from('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
+
+        $device->updateInfo($fingerprint, null);
+
+        $device->refresh();
+        $this->assertSame((string) $fingerprint, (string) $device->fingerprint);
+        $this->assertSame('1.0.0', $device->browser_version);
+    }
+
+    public function test_update_info_with_all_null_arguments_returns_without_error(): void
+    {
+        $device = Device::factory()->create();
+
+        $device->updateInfo(null, null);
+
+        $this->assertInstanceOf(Device::class, $device->fresh());
+    }
+
+    public function test_update_info_accepts_null_browser_and_platform_versions(): void
+    {
+        $device = Device::factory()->create([
+            'browser' => 'Chrome',
+            'browser_version' => '130.0.0',
+            'browser_family' => 'Chrome',
+            'browser_engine' => 'Blink',
+            'platform' => 'Mac',
+            'platform_version' => '10.15.7',
+            'platform_family' => 'Mac',
+            'device_type' => 'desktop',
+            'device_family' => 'Apple',
+            'device_model' => 'Mac',
+            'source' => 'Mozilla/5.0 (compatible)',
+        ]);
+
+        $dto = DeviceDto::from([
+            'browser' => Browser::from([
+                'name' => 'Chrome',
+                'version' => null,
+                'family' => 'Chrome',
+                'engine' => 'Blink',
+            ]),
+            'platform' => Platform::from([
+                'name' => 'Mac',
+                'version' => null,
+                'family' => 'Mac',
+            ]),
+            'device' => DeviceType::from([
+                'type' => 'desktop',
+                'family' => 'Apple',
+                'model' => 'Mac',
+            ]),
+            'advertisingId' => null,
+            'deviceId' => null,
+            'bot' => null,
+            'grade' => null,
+            'source' => 'Mozilla/5.0 (compatible)',
+        ]);
+
+        $device->updateInfo(null, $dto);
+        $device->refresh();
+
+        $this->assertNull($device->browser_version);
+        $this->assertNull($device->platform_version);
+    }
+
+    public function test_by_uuid_rejects_invalid_string(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('DeviceIdFactory::from()');
+
+        Device::byUuid('not-a-valid-uuid', false);
+    }
+
+    public function test_equals_strict_compares_browser_and_platform_versions_as_strings(): void
+    {
+        $device = Device::factory()->create([
+            'browser' => 'Chrome',
+            'browser_version' => '130.0.0',
+            'browser_family' => 'Chrome',
+            'browser_engine' => 'Blink',
+            'platform' => 'Mac',
+            'platform_version' => '10.15.7',
+            'platform_family' => 'Mac',
+            'device_type' => 'desktop',
+            'device_family' => 'Apple',
+            'device_model' => 'MacBook',
+            'source' => 'Mozilla/5.0',
+            'advertising_id' => null,
+            'device_id' => null,
+        ]);
+
+        $dto = DeviceDto::from([
+            'browser' => Browser::from([
+                'name' => 'Chrome',
+                'version' => Version::fromString('130.0.0'),
+                'family' => 'Chrome',
+                'engine' => 'Blink',
+            ]),
+            'platform' => Platform::from([
+                'name' => 'Mac',
+                'version' => Version::fromString('10.15.7'),
+                'family' => 'Mac',
+            ]),
+            'device' => DeviceType::from([
+                'type' => 'desktop',
+                'family' => 'Apple',
+                'model' => 'MacBook',
+            ]),
+            'advertisingId' => null,
+            'deviceId' => null,
+            'bot' => null,
+            'grade' => null,
+            'source' => 'Mozilla/5.0',
+        ]);
+
+        $this->assertTrue($device->equals($dto, strict: true));
     }
 }

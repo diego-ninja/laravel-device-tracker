@@ -49,6 +49,9 @@ class Event extends Model
         'occurred_at',
     ];
 
+    /**
+     * @return Attribute<Metadata, Metadata>
+     */
     public function metadata(): Attribute
     {
         return Attribute::make(
@@ -57,6 +60,9 @@ class Event extends Model
         );
     }
 
+    /**
+     * @return Attribute<EventType|null, EventType>
+     */
     public function type(): Attribute
     {
         return Attribute::make(

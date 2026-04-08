@@ -3,7 +3,6 @@
 namespace Ninja\DeviceTracker\Observers;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Ninja\DeviceTracker\Models\ChangeHistory;
 use Ninja\DeviceTracker\Models\Device;
 use Ninja\DeviceTracker\Models\Session;
@@ -30,24 +29,27 @@ final class ChangeHistoryObserver
 
     public function deleting(Model $model): void
     {
-        if (config('history.enabled', false) && method_exists($model, 'history')) {
-            /** @var MorphMany $history */
-            $history = $model->history();
-            $history->each(fn (ChangeHistory $changeHistory) => $changeHistory->delete());
+        if (config('devices.history.enabled', false) && method_exists($model, 'history')) {
+            $model->history()->delete();
         }
     }
 
     public static function getModelKey(Model $model): string
     {
-        return match (get_class($model)) {
-            Device::class => 'device',
-            Session::class => 'session',
-        };
+        if ($model instanceof Device) {
+            return 'device';
+        }
+
+        if ($model instanceof Session) {
+            return 'session';
+        }
+
+        throw new \InvalidArgumentException('Unsupported model: '.get_class($model));
     }
 
     private function getStringValue(mixed $value): ?string
     {
-        if (null === $value) {
+        if ($value === null) {
             return null;
         }
 
@@ -59,6 +61,8 @@ final class ChangeHistoryObserver
             return $value->__toString();
         }
 
-        return json_encode($value);
+        $encoded = json_encode($value);
+
+        return $encoded === false ? null : $encoded;
     }
 }

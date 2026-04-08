@@ -5,7 +5,7 @@ namespace Ninja\DeviceTracker\Facades;
 use Illuminate\Support\Facades\Facade;
 
 /**
- * @mixin \Ninja\DeviceTracker\DeviceManager
+ * @mixin \Ninja\DeviceTracker\DeviceManager<\Illuminate\Contracts\Auth\Authenticatable>
  */
 final class DeviceManager extends Facade
 {

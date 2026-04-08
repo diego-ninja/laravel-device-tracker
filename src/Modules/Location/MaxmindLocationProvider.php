@@ -35,6 +35,8 @@ final class MaxmindLocationProvider extends AbstractLocationProvider
     {
         $record = $this->reader->city($ip);
 
+        $accuracyRadius = $record->location->accuracyRadius;
+
         return Location::fromArray([
             'ip' => $ip,
             'country' => $record->country->isoCode,
@@ -44,7 +46,7 @@ final class MaxmindLocationProvider extends AbstractLocationProvider
             'latitude' => (string) $record->location->latitude,
             'longitude' => (string) $record->location->longitude,
             'timezone' => $record->location->timeZone,
-            'accuracyRadius' => $record->location->accuracyRadius,
+            'accuracyRadius' => $accuracyRadius !== null ? (string) $accuracyRadius : null,
         ]);
     }
 }

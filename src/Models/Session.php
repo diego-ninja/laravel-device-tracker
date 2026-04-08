@@ -28,7 +28,6 @@ use Ninja\DeviceTracker\Events\SessionStartedEvent;
 use Ninja\DeviceTracker\Events\SessionUnblockedEvent;
 use Ninja\DeviceTracker\Events\SessionUnlockedEvent;
 use Ninja\DeviceTracker\Exception\SessionNotFoundException;
-use Ninja\DeviceTracker\Facades\DeviceManager;
 use Ninja\DeviceTracker\Facades\SessionManager;
 use Ninja\DeviceTracker\Factories\SessionIdFactory;
 use Ninja\DeviceTracker\Modules\Location\Contracts\LocationProvider;
@@ -125,6 +124,9 @@ class Session extends Model implements Cacheable
         );
     }
 
+    /**
+     * @return MorphMany<ChangeHistory, $this>
+     */
     public function history(): MorphMany
     {
         return $this->morphMany(ChangeHistory::class, 'model');
@@ -256,6 +258,7 @@ class Session extends Model implements Cacheable
     {
         if ($this->status === SessionStatus::Finished) {
             SessionTransport::forget();
+
             return true;
         }
 
@@ -280,7 +283,7 @@ class Session extends Model implements Cacheable
             || SessionManager::alwaysSyncLastActivity()
             || (
                 $this->last_activity_at === null
-                || Carbon::now()->timestamp - $this->last_activity_at->timestamp > SessionManager::lastActivityUpdateInterval()
+                || $this->last_activity_at->diffInSeconds(Carbon::now()) > SessionManager::lastActivityUpdateInterval()
             )
         ) {
             $this->last_activity_at = Carbon::now();
@@ -315,6 +318,8 @@ class Session extends Model implements Cacheable
             return false;
         }
 
+        // hasDevice is provided by HasDevices on the application User model.
+        // @phpstan-ignore method.notFound
         if (! $user->hasDevice($device)) {
             return false;
         }
@@ -414,7 +419,7 @@ class Session extends Model implements Cacheable
 
     public function key(): string
     {
-        return SessionCache::key($this->uuid);
+        return SessionCache::key((string) $this->uuid);
     }
 
     public function ttl(): ?int
@@ -426,6 +431,9 @@ class Session extends Model implements Cacheable
     {
         if (is_string($uuid)) {
             $uuid = SessionIdFactory::from($uuid);
+            if ($uuid === null) {
+                return null;
+            }
         }
 
         if (! $cached) {
@@ -436,7 +444,7 @@ class Session extends Model implements Cacheable
         }
 
         return SessionCache::remember(
-            key: SessionCache::key($uuid),
+            key: SessionCache::key((string) $uuid),
             callback: function () use ($uuid) {
                 return self::where('uuid', (string) $uuid)->first();
             }
@@ -475,16 +483,29 @@ class Session extends Model implements Cacheable
         });
     }
 
-    private static function getIp(): string
+    public static function resolveClientIp(): string
     {
-        if (App::environment() === 'local') {
-            $development_ips = config('devices.development_ip_pool', []);
-            shuffle($development_ips);
-            $ip = $development_ips[0];
-        } else {
-            $ip = request()->ip();
+        $fromRequest = request()->ip();
+        $normalized = ($fromRequest !== null && $fromRequest !== '')
+            ? (string) $fromRequest
+            : '0.0.0.0';
+
+        if (! App::environment('local')) {
+            return $normalized;
         }
 
-        return $ip;
+        $pool = config('devices.development_ip_pool', []);
+        if (! is_array($pool) || $pool === []) {
+            return $normalized;
+        }
+
+        $index = abs(crc32($normalized)) % count($pool);
+
+        return (string) $pool[$index];
+    }
+
+    private static function getIp(): string
+    {
+        return self::resolveClientIp();
     }
 }

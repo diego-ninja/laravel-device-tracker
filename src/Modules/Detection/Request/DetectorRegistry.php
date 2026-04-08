@@ -17,14 +17,19 @@ final class DetectorRegistry implements RequestTypeDetector
 
     public function __construct()
     {
-        $this->detectors = collect([
+        /** @var list<RequestTypeDetector> $stack */
+        $stack = [
             new AuthenticationRequestDetector,
             new LivewireRequestDetector,
             new ApiRequestDetector,
             new AjaxRequestDetector,
             new RedirectResponseDetector,
             new PageViewDetector,
-        ])->sortByDesc(fn ($detector) => $detector->priority());
+        ];
+
+        $this->detectors = collect($stack)
+            ->sortByDesc(fn (RequestTypeDetector $detector) => $detector->priority())
+            ->values();
     }
 
     public function priority(): int

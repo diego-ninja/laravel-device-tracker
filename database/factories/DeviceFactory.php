@@ -5,8 +5,8 @@ namespace Ninja\DeviceTracker\Database\Factories;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Ninja\DeviceTracker\DTO\Metadata;
 use Ninja\DeviceTracker\Enums\DeviceStatus;
-use Ninja\DeviceTracker\Factories\FingerprintFactory;
 use Ninja\DeviceTracker\Factories\DeviceIdFactory;
+use Ninja\DeviceTracker\Factories\FingerprintFactory;
 use Ninja\DeviceTracker\Models\Device;
 
 class DeviceFactory extends Factory

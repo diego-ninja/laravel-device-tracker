@@ -10,17 +10,24 @@ use Ninja\DeviceTracker\Contracts\Cacheable;
 use Ninja\DeviceTracker\Models\Device;
 use Psr\SimpleCache\InvalidArgumentException;
 
-/** @phpstan-consistent-constructor */
 abstract class AbstractCache
 {
     public const KEY_PREFIX = '';
+
+    /**
+     * Serializable marker for negative caching in remember() when the callback returns null.
+     * Not a valid {@see Device} or other domain payload; callers always receive null.
+     *
+     * @internal
+     */
+    private const REMEMBER_NULL_SENTINEL = '__ninja.device_tracker.abstract_cache.remember_null.v1__';
 
     /** @var static[] */
     protected static array $instances = [];
 
     protected ?Repository $cache = null;
 
-    private function __construct()
+    final protected function __construct()
     {
         if (! $this->enabled()) {
             return;
@@ -55,11 +62,37 @@ abstract class AbstractCache
 
     public static function remember(string $key, Closure $callback): mixed
     {
-        if (! self::instance()->enabled()) {
+        $instance = self::instance();
+        if (! $instance->enabled()) {
             return $callback();
         }
 
-        return self::instance()->cache?->remember($key, self::instance()->ttl(), $callback);
+        $cache = $instance->cache;
+        if ($cache === null) {
+            return $callback();
+        }
+
+        $ttl = $instance->ttl();
+
+        // Laravel stores often treat get(null) like a miss, so we never put raw null. Non-null
+        // values are cached normally. For null callback results we store REMEMBER_NULL_SENTINEL
+        // (negative cache) so hot misses (e.g. Device::byUuid) do not repeat DB work until TTL.
+        $existing = $cache->get($key);
+        if ($existing === self::REMEMBER_NULL_SENTINEL) {
+            return null;
+        }
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $value = $callback();
+        $cache->put(
+            $key,
+            $value !== null ? $value : self::REMEMBER_NULL_SENTINEL,
+            $ttl
+        );
+
+        return $value;
     }
 
     public static function key(string $key): string
@@ -92,7 +125,13 @@ abstract class AbstractCache
             return null;
         }
 
-        return $this->cache?->get($key);
+        $value = $this->cache?->get($key);
+        if ($value === self::REMEMBER_NULL_SENTINEL || $value === null) {
+            return null;
+        }
+
+        /** @var Device $value */
+        return $value;
     }
 
     protected function putItem(Cacheable $item): void

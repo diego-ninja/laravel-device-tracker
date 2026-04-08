@@ -15,6 +15,7 @@ use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 use Ninja\DeviceTracker\Cache\DeviceCache;
 use Ninja\DeviceTracker\Contracts\Cacheable;
 use Ninja\DeviceTracker\Contracts\StorableId;
@@ -32,6 +33,7 @@ use Ninja\DeviceTracker\Events\DeviceVerifiedEvent;
 use Ninja\DeviceTracker\Exception\DeviceNotFoundException;
 use Ninja\DeviceTracker\Factories\DeviceIdFactory;
 use Ninja\DeviceTracker\Models\Relations\HasManySessions;
+use Ninja\DeviceTracker\Modules\Detection\DTO\Version;
 use Ninja\DeviceTracker\Modules\Tracking\Models\Event;
 use Ninja\DeviceTracker\Modules\Tracking\Models\Relations\HasManyEvents;
 use Ninja\DeviceTracker\Traits\PropertyProxy;
@@ -74,7 +76,9 @@ use PDOException;
  */
 class Device extends Model implements Cacheable
 {
+    /** @use HasFactory<\Ninja\DeviceTracker\Database\Factories\DeviceFactory> */
     use HasFactory;
+
     use PropertyProxy;
 
     protected $table = 'devices';
@@ -149,6 +153,9 @@ class Device extends Model implements Cacheable
         );
     }
 
+    /**
+     * @return MorphMany<ChangeHistory, $this>
+     */
     public function history(): MorphMany
     {
         return $this->morphMany(ChangeHistory::class, 'model');
@@ -238,7 +245,11 @@ class Device extends Model implements Cacheable
     public function verified(?Authenticatable $user = null): bool
     {
         $user = $user ?? user();
-        $deviceUser = $this->users()::where('user_id', $user?->getAuthIdentifier())->first();
+        if ($user === null || $user->getAuthIdentifier() === null) {
+            return false;
+        }
+
+        $deviceUser = $this->users()->whereKey($user->getAuthIdentifier())->first();
 
         return $deviceUser !== null && $this->status === $deviceUser->pivot->status;
     }
@@ -277,7 +288,7 @@ class Device extends Model implements Cacheable
 
     public function key(): string
     {
-        return DeviceCache::key($this->uuid);
+        return DeviceCache::key((string) $this->uuid);
     }
 
     public function ttl(): ?int
@@ -327,13 +338,13 @@ class Device extends Model implements Cacheable
     {
         $fingerprintChanged = $fingerprint !== null && $this->fingerprint !== $fingerprint;
         $dataChanged = $data !== null && (
-            $this->browser_version !== $data->browser->version->__toString()
-                || $this->platform_version !== $data->platform->version->__toString()
+            $this->browser_version !== $this->versionString($data->browser->version)
+                || $this->platform_version !== $this->versionString($data->platform->version)
                 || $this->source !== $data->source
                 || $this->device_model !== $data->device->model
         );
-        $advertisingIdSet = $data->advertisingId !== null && $this->advertising_id === null;
-        $deviceIdSet = $data->deviceId !== null && $this->device_id === null;
+        $advertisingIdSet = $data !== null && $data->advertisingId !== null && $this->advertising_id === null;
+        $deviceIdSet = $data !== null && $data->deviceId !== null && $this->device_id === null;
 
         if (! $fingerprintChanged && ! $dataChanged && ! $advertisingIdSet && ! $deviceIdSet) {
             return $this;
@@ -345,11 +356,12 @@ class Device extends Model implements Cacheable
         }
 
         if ($dataChanged) {
-            if ($this->browser_version !== $data->browser->version->__toString()) {
-                $this->browser_version = $data->browser->version;
+            assert($data instanceof DeviceDTO);
+            if ($this->browser_version !== $this->versionString($data->browser->version)) {
+                $this->browser_version = $this->versionString($data->browser->version);
             }
-            if ($this->platform_version !== $data->platform->version->__toString()) {
-                $this->platform_version = $data->platform->version;
+            if ($this->platform_version !== $this->versionString($data->platform->version)) {
+                $this->platform_version = $this->versionString($data->platform->version);
             }
             if ($this->source !== $data->source) {
                 $this->source = $data->source;
@@ -360,10 +372,12 @@ class Device extends Model implements Cacheable
         }
 
         if ($advertisingIdSet) {
+            assert($data instanceof DeviceDTO);
             $this->advertising_id = $data->advertisingId;
         }
 
         if ($deviceIdSet) {
+            assert($data instanceof DeviceDTO);
             $this->device_id = $data->deviceId;
         }
 
@@ -372,10 +386,33 @@ class Device extends Model implements Cacheable
         return $this;
     }
 
+    private function versionString(?Version $version): ?string
+    {
+        return $version === null ? null : (string) $version;
+    }
+
+    /**
+     * @throws InvalidArgumentException When $uuid is a string that DeviceIdFactory::from() rejects or returns null.
+     */
     public static function byUuid(StorableId|string $uuid, bool $cached = true): ?self
     {
         if (is_string($uuid)) {
-            $uuid = DeviceIdFactory::from($uuid);
+            $raw = $uuid;
+            try {
+                $parsed = DeviceIdFactory::from($raw);
+            } catch (\Exception $e) {
+                throw new InvalidArgumentException(
+                    sprintf('Invalid device UUID string (DeviceIdFactory::from() failed for: %s)', $raw),
+                    0,
+                    $e
+                );
+            }
+            if ($parsed === null) {
+                throw new InvalidArgumentException(
+                    sprintf('Invalid device UUID string (DeviceIdFactory::from() returned null): %s', $raw)
+                );
+            }
+            $uuid = $parsed;
         }
 
         if (! $cached) {
@@ -386,13 +423,14 @@ class Device extends Model implements Cacheable
         }
 
         return DeviceCache::remember(
-            key: DeviceCache::key($uuid),
+            key: DeviceCache::key((string) $uuid),
             callback: fn () => self::byUuid($uuid, false)
         );
     }
 
     /**
      * @throws DeviceNotFoundException
+     * @throws InvalidArgumentException
      */
     public static function byUuidOrFail(StorableId|string $uuid): self
     {
@@ -409,7 +447,7 @@ class Device extends Model implements Cacheable
         }
 
         return DeviceCache::remember(
-            key: DeviceCache::key($fingerprint),
+            key: DeviceCache::key((string) $fingerprint),
             callback: fn () => self::where('fingerprint', $fingerprint)->first()
         );
     }
@@ -462,6 +500,9 @@ class Device extends Model implements Cacheable
     {
         if (is_string($id)) {
             $id = DeviceIdFactory::from($id);
+            if ($id === null) {
+                return false;
+            }
         }
 
         return self::byUuid($id, false) !== null;
@@ -507,9 +548,9 @@ class Device extends Model implements Cacheable
         });
     }
 
-    protected static function newFactory()
+    protected static function newFactory(): DeviceFactory
     {
-        return new DeviceFactory;
+        return DeviceFactory::new();
     }
 
     public function equals(DeviceDTO $dto, bool $strict = true): bool
@@ -524,7 +565,7 @@ class Device extends Model implements Cacheable
     {
         return $dto->platform->name === $this->platform
             && $dto->platform->family === $this->platform_family
-            && (! $strict || $dto->platform->version === $this->platform_version);
+            && (! $strict || $this->versionString($dto->platform->version) === $this->platform_version);
     }
 
     protected function matchBrowser(DeviceDTO $dto, bool $strict = true): bool
@@ -532,7 +573,7 @@ class Device extends Model implements Cacheable
         return $dto->browser->name === $this->browser
             && $dto->browser->family === $this->browser_family
             && $dto->browser->engine === $this->browser_engine
-            && (! $strict || $dto->browser->version === $this->browser_version);
+            && (! $strict || $this->versionString($dto->browser->version) === $this->browser_version);
     }
 
     protected function matchDevice(DeviceDTO $dto, bool $strict = true): bool

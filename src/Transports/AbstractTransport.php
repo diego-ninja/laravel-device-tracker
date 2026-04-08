@@ -18,14 +18,23 @@ use Throwable;
 abstract class AbstractTransport
 {
     protected const CONFIG_PARAMETER = 'transports.device_id.parameter';
+
     protected const CONFIG_PARAMETER_FALLBACK = 'device_id_parameter';
+
     protected const CONFIG_ALTERNATIVE_PARAMETER = 'transports.device_id.alternative_parameter';
+
     protected const CONFIG_ALTERNATIVE_PARAMETER_FALLBACK = 'device_id_alternative_parameter';
+
     protected const CONFIG_TRANSPORT_HIERARCHY_KEY = 'transports.device_id.transport_hierarchy';
+
     protected const CONFIG_TRANSPORT_HIERARCHY_KEY_FALLBACK = 'device_id_transport_hierarchy';
+
     protected const CONFIG_RESPONSE_TRANSPORT_KEY = 'transports.device_id.response_transport';
+
     protected const CONFIG_RESPONSE_TRANSPORT_KEY_FALLBACK = 'device_id_response_transport';
+
     protected const DEFAULT_TRANSPORT = Transport::Cookie;
+
     protected const DEFAULT_RESPONSE_TRANSPORT = Transport::Cookie;
 
     public function __construct(public Transport $transport) {}
@@ -40,7 +49,7 @@ abstract class AbstractTransport
     /**
      * @return array<Transport>
      */
-    private static function transportsHierarchy(): array
+    protected static function transportsHierarchy(): array
     {
         $hierarchy = config(
             sprintf('devices.%s', static::CONFIG_TRANSPORT_HIERARCHY_KEY),
@@ -196,13 +205,13 @@ abstract class AbstractTransport
         return null;
     }
 
+    /**
+     * @param  array<Transport>  $hierarchy  Same shape as {@see static::transportsHierarchy()} (resolved enum cases, not raw config strings).
+     */
     protected static function cleanRequestHierarchy(array $hierarchy): void
     {
-        foreach ($hierarchy as $item) {
-            $transport = Transport::tryFrom($item);
-            if (! is_null($transport)) {
-                static::make($transport)->clean();
-            }
+        foreach ($hierarchy as $transport) {
+            static::make($transport)->clean();
         }
     }
 
@@ -253,10 +262,11 @@ abstract class AbstractTransport
         }
 
         $parameter = static::parameter();
+
         return $request->merge([$parameter => $id]);
     }
 
-    private static function isValidResponse(mixed $response): bool
+    protected static function isValidResponse(mixed $response): bool
     {
         $valid = [
             Response::class,

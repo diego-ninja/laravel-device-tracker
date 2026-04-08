@@ -79,13 +79,15 @@ final readonly class DeviceTracker
         }
 
         if (DeviceManager::shouldTrack()) {
+            /** @var Device|null $device */
+            $device = null;
             try {
                 $device = DeviceManager::create(
                     deviceUuid: $deviceUuid,
                     fingerprint: $fingerprint,
                     deviceDto: $detectedDevice,
                 );
-            } catch (UniqueConstraintViolationException $e) {
+            } catch (UniqueConstraintViolationException $e) { // @phpstan-ignore catch.neverThrown (unique violations from the DB layer)
                 // Race conditions probably means that a device has been created between the matching device check
                 // and the previous DeviceManager::create. Try to find again the matching device that should now exist
                 $device = $this->getMatchingDevice(
@@ -102,9 +104,21 @@ final readonly class DeviceTracker
                     return DeviceTransport::set($next(DeviceTransport::propagate($device->uuid)), $device->uuid);
                 }
 
-                $this->abort($detectedDevice === null, $detectedDevice?->source ?? 'unknown', $e);
+                $this->abort(
+                    $detectedDevice === null || $detectedDevice->unknown(),
+                    $this->deviceDtoSource($detectedDevice),
+                    $e
+                );
             } catch (UnknownDeviceDetectedException $e) {
-                $this->abort($detectedDevice === null, $detectedDevice?->source ?? 'unknown', $e);
+                $this->abort(
+                    $detectedDevice === null || $detectedDevice->unknown(),
+                    $this->deviceDtoSource($detectedDevice),
+                    $e
+                );
+            }
+
+            if ($device === null) {
+                throw new \RuntimeException('Device tracking expected a device after create or recovery.');
             }
 
             DeviceManager::track($device->uuid);
@@ -116,6 +130,15 @@ final readonly class DeviceTracker
         $deviceUuid ??= DeviceIdFactory::generate();
 
         return DeviceTransport::set($next(DeviceTransport::propagate($deviceUuid)), $deviceUuid);
+    }
+
+    private function deviceDtoSource(?DeviceDto $deviceDto): string
+    {
+        if ($deviceDto === null) {
+            return 'unknown';
+        }
+
+        return $deviceDto->source ?? 'unknown';
     }
 
     private function checkCustomDeviceTransportHierarchy(?string $hierarchyParameterString = null): void
@@ -203,7 +226,7 @@ final readonly class DeviceTracker
             if (! array_key_exists($errorCode, Response::$statusTexts)) {
                 $errorCode = 403;
             }
-            abort($errorCode, sprintf(
+            abort((int) $errorCode, sprintf(
                 '%s device detected: user-agent %s',
                 $unknown ? 'Unknown' : 'Bot',
                 $userAgent
