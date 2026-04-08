@@ -14,6 +14,14 @@ abstract class AbstractCache
 {
     public const KEY_PREFIX = '';
 
+    /**
+     * Serializable marker for negative caching in remember() when the callback returns null.
+     * Not a valid {@see Device} or other domain payload; callers always receive null.
+     *
+     * @internal
+     */
+    private const REMEMBER_NULL_SENTINEL = '__ninja.device_tracker.abstract_cache.remember_null.v1__';
+
     /** @var static[] */
     protected static array $instances = [];
 
@@ -66,20 +74,23 @@ abstract class AbstractCache
 
         $ttl = $instance->ttl();
 
-        // Similar in spirit to Repository::remember(), but not identical: Laravel's remember()
-        // still calls put() with the callback result (including null), while many stores treat
-        // stored null like a miss on get(). We skip put() when the callback returns null so we
-        // avoid pointless writes when data is absent (e.g. Device::byUuid miss) while enabled(),
-        // ttl(), and the resolved $cache repository behave the same for non-null values.
+        // Laravel stores often treat get(null) like a miss, so we never put raw null. Non-null
+        // values are cached normally. For null callback results we store REMEMBER_NULL_SENTINEL
+        // (negative cache) so hot misses (e.g. Device::byUuid) do not repeat DB work until TTL.
         $existing = $cache->get($key);
+        if ($existing === self::REMEMBER_NULL_SENTINEL) {
+            return null;
+        }
         if ($existing !== null) {
             return $existing;
         }
 
         $value = $callback();
-        if ($value !== null) {
-            $cache->put($key, $value, $ttl);
-        }
+        $cache->put(
+            $key,
+            $value !== null ? $value : self::REMEMBER_NULL_SENTINEL,
+            $ttl
+        );
 
         return $value;
     }
@@ -114,7 +125,13 @@ abstract class AbstractCache
             return null;
         }
 
-        return $this->cache?->get($key);
+        $value = $this->cache?->get($key);
+        if ($value === self::REMEMBER_NULL_SENTINEL || $value === null) {
+            return null;
+        }
+
+        /** @var Device $value */
+        return $value;
     }
 
     protected function putItem(Cacheable $item): void

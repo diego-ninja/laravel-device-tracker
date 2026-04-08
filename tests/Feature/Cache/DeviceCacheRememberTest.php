@@ -61,7 +61,7 @@ final class DeviceCacheRememberTest extends FeatureTestCase
         $this->assertSame(1, $calls);
     }
 
-    public function test_remember_does_not_store_null_so_callback_runs_again(): void
+    public function test_remember_negative_cache_avoids_repeat_callback_for_null(): void
     {
         $this->resetAbstractCacheInstances();
         Config::set('devices.cache_enabled_for', ['device']);
@@ -81,7 +81,7 @@ final class DeviceCacheRememberTest extends FeatureTestCase
 
         $this->assertNull($first);
         $this->assertNull($second);
-        $this->assertSame(2, $calls);
+        $this->assertSame(1, $calls);
     }
 
     private function resetAbstractCacheInstances(): void

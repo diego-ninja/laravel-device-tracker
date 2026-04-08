@@ -400,7 +400,7 @@ class Device extends Model implements Cacheable
             $raw = $uuid;
             try {
                 $parsed = DeviceIdFactory::from($raw);
-            } catch (\Throwable $e) {
+            } catch (\Exception $e) {
                 throw new InvalidArgumentException(
                     sprintf('Invalid device UUID string (DeviceIdFactory::from() failed for: %s)', $raw),
                     0,
