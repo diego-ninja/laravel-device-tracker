@@ -65,7 +65,6 @@ final class DeviceCacheRememberTest extends FeatureTestCase
     {
         $ref = new \ReflectionClass(AbstractCache::class);
         $prop = $ref->getProperty('instances');
-        $prop->setAccessible(true);
         $prop->setValue(null, []);
     }
 }

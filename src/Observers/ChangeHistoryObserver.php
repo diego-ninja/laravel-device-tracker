@@ -30,9 +30,7 @@ final class ChangeHistoryObserver
     public function deleting(Model $model): void
     {
         if (config('devices.history.enabled', false) && method_exists($model, 'history')) {
-            $model->history()->get()->each(function (ChangeHistory $changeHistory): void {
-                $changeHistory->delete();
-            });
+            $model->history()->delete();
         }
     }
 

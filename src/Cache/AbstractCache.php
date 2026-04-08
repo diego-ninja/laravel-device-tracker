@@ -65,6 +65,11 @@ abstract class AbstractCache
         }
 
         $ttl = $instance->ttl();
+
+        // Match Illuminate\Contracts\Cache\Repository::remember(): only non-null values count
+        // as hits. Laravel's get()/has() treat a store null the same as a missing key, so
+        // callbacks that resolve to null are not "sticky" across requests. Other falsy values
+        // (false, 0, '', []) are returned from cache as expected.
         $existing = $cache->get($key);
         if ($existing !== null) {
             return $existing;

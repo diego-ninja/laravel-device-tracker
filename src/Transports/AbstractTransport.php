@@ -206,15 +206,12 @@ abstract class AbstractTransport
     }
 
     /**
-     * @param  array<int, mixed>  $hierarchy
+     * @param  array<Transport>  $hierarchy  Same shape as {@see static::transportsHierarchy()} (resolved enum cases, not raw config strings).
      */
     protected static function cleanRequestHierarchy(array $hierarchy): void
     {
-        foreach ($hierarchy as $item) {
-            $transport = Transport::tryFrom($item);
-            if (! is_null($transport)) {
-                static::make($transport)->clean();
-            }
+        foreach ($hierarchy as $transport) {
+            static::make($transport)->clean();
         }
     }
 
